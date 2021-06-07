@@ -17,6 +17,10 @@ type ekikan_t = {
   jikan  : int;    (* 所要時間（分） *)
 }
 
+(* 最短路問題で使う木を表す型 *) 
+type ekikan_tree_t = Empty (* 空の木 *) 
+                   | Node of ekikan_tree_t * string * (string * float) list * ekikan_tree_t
+
 (* グラフの中の節（駅）を表す型 *) 
 type eki_t = {
   namae        : string;      (* 駅名（漢字） *)
@@ -651,7 +655,7 @@ let dijkstra romaji_kiten romaji_shuten =
   find shuten eki_list2
 
 (* テスト *) 
-let test1 = dijkstra "shibuya" "gokokuji" = 
+(* let test1 = dijkstra "shibuya" "gokokuji" = 
   {namae = "護国寺"; saitan_kyori = 9.8; 
    temae_list = 
      ["護国寺"; "江戸川橋"; "飯田橋"; "市ヶ谷"; "麹町"; "永田町"; 
@@ -660,5 +664,55 @@ let test2 = dijkstra "myogadani" "meguro" =
   {namae = "目黒"; saitan_kyori = 12.7000000000000028; 
    temae_list = 
      ["目黒"; "白金台"; "白金高輪"; "麻布十番"; "六本木一丁目"; "溜池山王"; 
-      "永田町"; "麹町"; "市ヶ谷"; "飯田橋"; "後楽園"; "茗荷谷"]} 
+      "永田町"; "麹町"; "市ヶ谷"; "飯田橋"; "後楽園"; "茗荷谷"]}  *)
+
+
+(* 目的：受け取った ekimei0 までの距離を lst から探して返す *) 
+(* assoc : string -> (string * float) list -> float *)
+let rec assoc ekimei0 lst = match lst with
+    [] -> infinity
+  | (ekimei, kyori) :: rest -> if ekimei0 = ekimei then kyori
+                                                   else assoc ekimei0 rest
+
+(* テスト *) 
+(* let test1 = assoc "後楽園" [] = infinity 
+let test2 = assoc "後楽園" [("新大塚", 1.2); ("後楽園", 1.8)] = 1.8 
+let test3 = assoc "池袋" [("新大塚", 1.2); ("後楽園", 1.8)] = infinity *)
+
+(* type ekikan_tree_t = Empty (* 空の木 *) 
+                   | Node of ekikan_tree_t * string * (string * float) list * ekikan_tree_t *)
+
+(* 目的：受け取った kiten, shuten, kyori を ekikan_tree に挿入した木を返す *) 
+(* insert1 : ekikan_tree_t -> string -> string -> float -> ekikan_tree_t *) 
+let rec insert1 ekikan_tree kiten shuten kyori = match ekikan_tree with 
+    Empty -> Node (Empty, kiten, [(shuten, kyori)], Empty) 
+  | Node (left, ekimei, lst, right) -> 
+      if kiten < ekimei 
+      then Node (insert1 left kiten shuten kyori, ekimei, lst, right) 
+      else if ekimei < kiten 
+      then Node (left, ekimei, lst, insert1 right kiten shuten kyori) 
+      else Node (left, ekimei, (shuten, kyori) :: lst, right) 
  
+(* 目的：受け取った ekikan 情報を ekikan_tree に挿入した木を返す *) 
+(* insert_ekikan : ekikan_tree_t -> ekikan_t -> ekikan_tree_t *) 
+let insert_ekikan ekikan_tree ekikan = match ekikan with 
+  {kiten = kiten; shuten = shuten; keiyu = keiyu; kyori = kyori; jikan = jikan} -> 
+  insert1 (insert1 ekikan_tree shuten kiten kyori) kiten shuten kyori 
+
+(* 駅間の例 *) 
+let ekikan1 = {kiten="池袋"; shuten="新大塚"; keiyu="丸ノ内線"; kyori=1.8; jikan=3} 
+let ekikan2 = {kiten="新大塚"; shuten="茗荷谷"; keiyu="丸ノ内線"; kyori=1.2; jikan=2} 
+let ekikan3 = {kiten="茗荷谷"; shuten="後楽園"; keiyu="丸ノ内線"; kyori=1.8; jikan=2} 
+
+let tree1 = insert_ekikan Empty ekikan1 
+let tree2 = insert_ekikan tree1 ekikan2 
+let tree3 = insert_ekikan tree2 ekikan3 
+ 
+(* テスト *) 
+let test1 = tree1 = Node (Empty, "新大塚", [("池袋", 1.8)], Node (Empty, "池袋", [("新大塚", 1.8)], Empty)) 
+
+let test2 = tree2 = Node (Empty, "新大塚", [("茗荷谷", 1.2); ("池袋", 1.8)], 
+                  	Node (Empty, "池袋", [("新大塚", 1.8)], 
+	                  Node (Empty, "茗荷谷", [("新大塚", 1.2)], Empty)))
+
+let test3 = tree3 = Node (Node (Empty, "後楽園", [("茗荷谷", 1.8)], Empty), "新大塚", [("茗荷谷", 1.2); ("池袋", 1.8)], Node (Empty, "池袋", [("新大塚", 1.8)], Node (Empty, "茗荷谷", [("後楽園", 1.8); ("新大塚", 1.2)], Empty))) 
