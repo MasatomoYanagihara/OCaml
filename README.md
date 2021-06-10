@@ -1,1 +1,1 @@
-OCaml
+OCaml学習用リポジトリ
